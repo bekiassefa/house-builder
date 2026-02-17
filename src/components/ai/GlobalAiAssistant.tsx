@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useAppData } from '../../hooks/useAppData';
-import { GoogleGenAI } from '@google/genai';
+// FIX 1: Import from the browser-compatible SDK
+import { GoogleGenAI } from '@google/generative-ai';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Sparkles, X, Send, Bot, User, Loader2 } from 'lucide-react';
@@ -66,7 +67,12 @@ export function GlobalAiAssistant() {
     const userMsg = textOverride || input;
     if (!userMsg.trim()) return;
     
-    if (!process.env.API_KEY) {
+    // Check for API Key in various environment variable formats
+    const apiKey = process.env.GEMINI_API_KEY || 
+                   process.env.NEXT_PUBLIC_GEMINI_API_KEY || 
+                   (import.meta as any).env?.VITE_GEMINI_API_KEY;
+
+    if (!apiKey) {
         toast.error("API Key missing");
         return;
     }
@@ -76,40 +82,39 @@ export function GlobalAiAssistant() {
     setIsTyping(true);
 
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const context = generateContext();
+        // FIX 2: Correct initialization for browser SDK
+        const genAI = new GoogleGenAI(apiKey);
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-3-flash-preview",
+            systemInstruction: `You are the AI Assistant for HBT Pro, a construction management app.
         
-        const systemInstruction = `You are the AI Assistant for HBT Pro, a construction management app.
-        
-        Current Project Context Data:
-        ${context}
-        
-        Rules:
-        1. Be concise, professional, and helpful.
-        2. Use the provided context to answer questions about budget, tasks, and workers accurately.
-        3. If you suggest actions, keep them related to construction management (e.g., "Add a worker", "Review budget").
-        4. When asked for lists or reports, format them cleanly.
-        5. Assume the currency is ETB unless specified otherwise.
-        `;
+            Current Project Context Data:
+            ${generateContext()}
+            
+            Rules:
+            1. Be concise, professional, and helpful.
+            2. Use the provided context to answer questions about budget, tasks, and workers accurately.
+            3. If you suggest actions, keep them related to construction management (e.g., "Add a worker", "Review budget").
+            4. When asked for lists or reports, format them cleanly.
+            5. Assume the currency is ETB unless specified otherwise.`
+        });
 
-        const chat = ai.chats.create({
-            model: 'gemini-3-flash-preview',
-            config: {
-                systemInstruction: systemInstruction,
-            },
+        // FIX 3: Start chat session with correct history format
+        const chat = model.startChat({
             history: messages.slice(1).map(m => ({
                 role: m.role,
                 parts: [{ text: m.text }]
             }))
         });
 
-        const result = await chat.sendMessageStream({ message: userMsg });
+        // FIX 4: Handle streaming response correctly for this SDK
+        const result = await chat.sendMessageStream(userMsg);
         
         setMessages(prev => [...prev, { role: 'model', text: '' }]); // Placeholder
 
         let fullResponse = "";
-        for await (const chunk of result) {
-             const text = chunk.text;
+        for await (const chunk of result.stream) {
+             const text = chunk.text();
              if (text) {
                  fullResponse += text;
                  setMessages(prev => {
