@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useAppData } from '../../hooks/useAppData';
 import { toast } from 'sonner';
 import { Sparkles, Loader2, Plus } from 'lucide-react';
-import { GoogleGenAI, Type } from "@google/genai";
+import { Client } from "@google/genai";
 
 interface AiPlannerModalProps {
   open: boolean;
@@ -22,9 +22,13 @@ export function AiPlannerModal({ open, onClose, selectedDate }: AiPlannerModalPr
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
   const handleGenerate = async () => {
-    // Check if API Key is available
-    if (!process.env.API_KEY) {
-        toast.error("API Key is missing. Please check your environment variables.");
+    // Check for API Key in various environment variable formats
+    const apiKey = process.env.GEMINI_API_KEY || 
+                   process.env.NEXT_PUBLIC_GEMINI_API_KEY || 
+                   (import.meta as any).env?.VITE_GEMINI_API_KEY;
+
+    if (!apiKey) {
+        toast.error("API Key is missing. Check your .env file.");
         return;
     }
 
@@ -32,7 +36,7 @@ export function AiPlannerModal({ open, onClose, selectedDate }: AiPlannerModalPr
     setSuggestions([]);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const client = new Client({ apiKey: apiKey });
       
       const systemInstruction = `You are a construction site manager assistant. 
       The project is a ${activeProject?.projectType || 'G+0'} residential building.
@@ -43,23 +47,33 @@ export function AiPlannerModal({ open, onClose, selectedDate }: AiPlannerModalPr
         ? `Current phase/status: ${prompt}. Suggest daily tasks.` 
         : `Suggest daily tasks for a ${activeProject?.projectType} building construction project.`;
 
-      const response = await ai.models.generateContent({
+      const response = await client.models.generateContent({
         model: 'gemini-3-flash-preview', 
         contents: userPrompt,
         config: {
           systemInstruction: systemInstruction,
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.ARRAY,
+            type: "ARRAY",
             items: {
-                type: Type.STRING
+                type: "STRING"
             }
           }
         }
       });
 
       if (response.text) {
-        const tasks = JSON.parse(response.text);
+        let tasks;
+        // Safely extract text whether it's a property or a function
+        const text = typeof response.text === 'function' ? response.text() : response.text;
+        
+        try {
+            tasks = JSON.parse(text);
+        } catch (e) {
+            console.error("JSON Parse error", e);
+            tasks = [];
+        }
+
         if (Array.isArray(tasks)) {
             setSuggestions(tasks);
         }
@@ -98,7 +112,6 @@ export function AiPlannerModal({ open, onClose, selectedDate }: AiPlannerModalPr
         });
     }
     
-    // Remove from suggestions to avoid dupes visually
     setSuggestions(prev => prev.filter(t => t !== taskTitle));
     toast.success("Task added to planner");
   };
