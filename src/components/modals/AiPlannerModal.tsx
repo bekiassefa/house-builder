@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { useAppData } from '../../hooks/useAppData';
 import { toast } from 'sonner';
 import { Sparkles, Loader2, Plus } from 'lucide-react';
-// FIX: Import from the browser-compatible SDK
-import { GoogleGenAI, SchemaType } from "@google/generative-ai";
+// FIX: Correct Class Name Import
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 interface AiPlannerModalProps {
   open: boolean;
@@ -23,7 +23,6 @@ export function AiPlannerModal({ open, onClose, selectedDate }: AiPlannerModalPr
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
   const handleGenerate = async () => {
-    // Check for API Key
     const apiKey = process.env.GEMINI_API_KEY || 
                    process.env.NEXT_PUBLIC_GEMINI_API_KEY || 
                    (import.meta as any).env?.VITE_GEMINI_API_KEY;
@@ -37,12 +36,11 @@ export function AiPlannerModal({ open, onClose, selectedDate }: AiPlannerModalPr
     setSuggestions([]);
 
     try {
-      // FIX: Use GoogleGenAI class (Browser SDK)
-      const genAI = new GoogleGenAI(apiKey);
+      // FIX: Use Correct Class Name
+      const genAI = new GoogleGenerativeAI(apiKey);
       
-      // FIX: Use the specific model you requested
       const model = genAI.getGenerativeModel({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash", // Reverted to stable model to ensure compatibility
         systemInstruction: `You are a construction site manager assistant. 
         The project is a ${activeProject?.projectType || 'G+0'} residential building.
         Suggest 5-7 distinct, actionable daily tasks appropriate for the described construction phase.

@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useAppData } from '../../hooks/useAppData';
-// FIX 1: Import from the browser-compatible SDK
-import { GoogleGenAI } from '@google/generative-ai';
+// FIX 1: Import the CORRECT class name
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Sparkles, X, Send, Bot, User, Loader2 } from 'lucide-react';
@@ -82,8 +82,9 @@ export function GlobalAiAssistant() {
     setIsTyping(true);
 
     try {
-        // FIX 2: Correct initialization for browser SDK
-        const genAI = new GoogleGenAI(apiKey);
+        // FIX 2: Use the CORRECT class name for initialization
+        const genAI = new GoogleGenerativeAI(apiKey);
+        
         const model = genAI.getGenerativeModel({ 
             model: "gemini-3-flash-preview",
             systemInstruction: `You are the AI Assistant for HBT Pro, a construction management app.
@@ -99,7 +100,7 @@ export function GlobalAiAssistant() {
             5. Assume the currency is ETB unless specified otherwise.`
         });
 
-        // FIX 3: Start chat session with correct history format
+        // Start chat session with history
         const chat = model.startChat({
             history: messages.slice(1).map(m => ({
                 role: m.role,
@@ -107,7 +108,7 @@ export function GlobalAiAssistant() {
             }))
         });
 
-        // FIX 4: Handle streaming response correctly for this SDK
+        // Send message and stream response
         const result = await chat.sendMessageStream(userMsg);
         
         setMessages(prev => [...prev, { role: 'model', text: '' }]); // Placeholder
